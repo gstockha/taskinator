@@ -4,6 +4,7 @@ var tasksToDoEl = document.querySelector("#tasks-to-do"); //target area of html 
 var pageContentEl = document.querySelector("#page-content"); //get the main body
 var tasksInProgressEl = document.querySelector("#tasks-in-progress");
 var tasksCompletedEl = document.querySelector("#tasks-completed");
+var tasks = [];
 
 var taskFormHandler = function() { //when addtask button is pressed
     event.preventDefault(); //prevent refresh
@@ -27,8 +28,9 @@ var taskFormHandler = function() { //when addtask button is pressed
     // no data attribute, so create object as normal and pass to createTaskEl function
     else {
         var taskDataObj = {
-        name: taskNameInput,
-        type: taskTypeInput
+            name: taskNameInput,
+            type: taskTypeInput,
+            status: "to do"
         };
     
         createTaskEl(taskDataObj);
@@ -49,6 +51,9 @@ var createTaskEl = function(taskDataObj) {
     var taskActionsEl = createTaskActions(taskIdCounter);
     listItemEl.appendChild(taskActionsEl);
     tasksToDoEl.appendChild(listItemEl);
+    taskDataObj.id = taskIdCounter;
+    tasks.push(taskDataObj); //add to array
+    saveTasks();
     // increase task counter for next unique id
     taskIdCounter++;
 };
@@ -97,6 +102,19 @@ var createTaskActions = function(taskId) {
 var deleteTask = function(taskId) {
     var taskSelected = document.querySelector(".task-item[data-task-id='" + taskId + "']"); //target the <li> id
     taskSelected.remove();
+    // create new array to hold updated list of tasks
+    var updatedTaskArr = [];
+
+    // loop through current tasks
+    for (var i = 0; i < tasks.length; i++) {
+        // if tasks[i].id doesn't match the value of taskId, let's keep that task and push it into the new array
+        if (tasks[i].id !== parseInt(taskId)) {
+            updatedTaskArr.push(tasks[i]);
+        }
+    }
+    saveTasks();
+    // reassign tasks array to be the same as updatedTaskArr
+    tasks = updatedTaskArr;
 };
 
 var editTask = function(taskId) {
@@ -106,6 +124,14 @@ var editTask = function(taskId) {
     // get content from task name and type
     var taskName = taskSelected.querySelector("h3.task-name").textContent;
     var taskType = taskSelected.querySelector("span.task-type").textContent;
+    // loop through tasks array and task object with new content
+    for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i].id === parseInt(taskId)) {
+            tasks[i].name = taskName;
+            tasks[i].type = taskType;
+        }
+    }
+    saveTasks();
     document.querySelector("input[name='task-name']").value = taskName;
     document.querySelector("select[name='task-type']").value = taskType;
     document.querySelector("#save-task").textContent = "Save Task";
@@ -159,8 +185,36 @@ var taskStatusChangeHandler = function(event) {
     else if (statusValue === "completed") {
         tasksCompletedEl.appendChild(taskSelected);
     }
+    // update task's in tasks array
+    for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i].id === parseInt(taskId)) {
+            tasks[i].status = statusValue;
+        }
+    }
+    saveTasks();
+};
+
+var saveTasks = function() {
+    localStorage.setItem("tasks", JSON.stringify(tasks));
+};
+
+var loadTasks = function() {
+    var savedTasks = localStorage.getItem("tasks");
+    // if there are no tasks, set tasks to an empty array and return out of the function
+    if (!savedTasks) {
+      return false;
+    }
+    console.log("Saved tasks found!");
+    // parse into array of objects
+    savedTasks = JSON.parse(savedTasks);
+    for (var i = 0; i < savedTasks.length; i++) {
+      // pass each task object into the `createTaskEl()` function
+      createTaskEl(savedTasks[i]);
+    }
 };
 
 formEl.addEventListener("submit", taskFormHandler); //submit uses enter and click
+//this type of listener won't work with the delete button because it's not there when the page first loads, and it only listens to the first button made
 pageContentEl.addEventListener("click", taskButtonHandler); //targets anything on the screen
 pageContentEl.addEventListener("change", taskStatusChangeHandler); //<select> only fires on the first click, so we need make unique one
+loadTasks();
